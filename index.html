@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>材料成本計算器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google AdSense 官方 script (請將 YOUR_CLIENT_ID 換成你自己的 AdSense Publisher ID，例如 ca-pub-XXXXXXXXXXXXXXXX) -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_CLIENT_ID" crossorigin="anonymous"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#121214',
+                        cardBg: '#1a1a1e',
+                        inputBg: '#222227',
+                        accentYellow: '#facc15',
+                        borderGray: '#2c2c35'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen font-sans antialiased pb-24">
+
+    <!-- 主畫面容器 -->
+    <div id="mainView" class="max-w-md mx-auto p-4 space-y-6">
+        <div class="flex justify-between items-center pt-4">
+            <h1 class="text-xl font-bold tracking-wide">材料成本計算器</h1>
+            <div class="flex space-x-2">
+                <button onclick="switchView('historyView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow hover:bg-inputBg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <button onclick="switchView('settingsView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow hover:bg-inputBg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 材型選擇 -->
+        <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-400">材型</label>
+            <div class="grid grid-cols-3 gap-2 bg-cardBg p-1 rounded-2xl border border-borderGray">
+                <button onclick="setShape('plate')" id="btn-plate" class="shape-btn py-2.5 rounded-xl text-sm font-medium transition bg-inputBg text-slate-100 shadow">板材</button>
+                <button onclick="setShape('rod')" id="btn-rod" class="shape-btn py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100">圓棒</button>
+                <button onclick="setShape('tube')" id="btn-tube" class="shape-btn py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100">管材</button>
+            </div>
+        </div>
+
+        <!-- 材質選擇 -->
+        <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-400">材質選擇</label>
+            <div class="bg-cardBg border border-borderGray rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition" onclick="switchView('materialSelectorView')">
+                <span id="selectedMaterialText" class="text-slate-200">鋁合金</span>
+                <span class="text-slate-400 flex items-center">密度：<span id="selectedDensityText" class="text-slate-200 ml-1">2.700</span> g/cm³ <span class="ml-2">›</span></span>
+            </div>
+        </div>
+
+        <!-- 尺寸與單價 -->
+        <div class="space-y-3">
+            <div class="flex justify-between items-center">
+                <label class="text-sm font-medium text-slate-400">尺寸與單價 (<span id="unitLabelIndicator">mm</span>)</label>
+                <span class="text-xs text-accentYellow bg-accentYellow/10 border border-accentYellow/30 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                    <span>💡 提示：輸入後可按 Enter 鍵切換下一格</span>
+                </span>
+            </div>
+            <div id="dimensionInputsContainer" class="grid grid-cols-3 gap-2"></div>
+            <div class="relative flex items-center">
+                <input type="number" id="unitPrice" placeholder="單價 (元/kg)" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-4 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'unitPrice')">
+                <button onclick="toggleLockPrice()" id="lockBtn" class="absolute right-4 text-accentYellow">
+                    <svg id="lockIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 計算與清除按鈕 -->
+        <div class="grid grid-cols-2 gap-3 pt-2">
+            <button onclick="performCalculate()" class="border-2 border-accentYellow text-accentYellow py-3.5 rounded-2xl font-bold flex justify-center items-center hover:bg-accentYellow/10 transition">
+                <span>ƒ(x) 計算</span>
+            </button>
+            <button onclick="clearForm()" class="border-2 border-rose-500 text-rose-500 py-3.5 rounded-2xl font-bold flex justify-center items-center hover:bg-rose-500/10 transition">
+                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                <span>清除</span>
+            </button>
+        </div>
+
+        <!-- 語音提示橫幅 -->
+        <div class="bg-cardBg border border-borderGray rounded-2xl p-4 flex items-center justify-between text-slate-400 text-sm">
+            <div class="flex items-center space-x-3">
+                <span class="text-accentYellow">◎</span>
+                <span>點選下方麥克風開始語音輸入 (已停用)</span>
+            </div>
+            <span class="text-slate-600">🎙️</span>
+        </div>
+
+        <!-- 計算結果顯示區 -->
+        <div id="resultSection" class="space-y-2">
+            <label class="text-sm font-medium text-slate-400">計算結果</label>
+            <div id="resultCard" class="bg-cardBg border border-borderGray rounded-2xl p-5 text-sm text-slate-300 space-y-1.5 font-mono">
+                <div class="text-slate-500">尚未進行計算...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 其他子頁面 (選擇材質、設定、歷史紀錄等...) 保持不變 -->
+    <div id="materialSelectorView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center pt-4">
+            <button onclick="switchView('mainView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <h2 class="text-lg font-bold flex-1 text-center mr-10">選擇材質</h2>
+        </div>
+        <div class="space-y-3">
+            <h3 class="text-sm font-medium text-slate-400">分類</h3>
+            <div class="bg-cardBg border border-borderGray rounded-2xl divide-y divide-borderGray">
+                <div onclick="setCategory('metal')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition">
+                    <span class="text-slate-200">金屬材質</span>
+                    <span id="check-metal" class="text-sky-400 font-bold">✓</span>
+                </div>
+                <div onclick="setCategory('plastic')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition">
+                    <span class="text-slate-200">塑膠材質</span>
+                    <span id="check-plastic" class="text-transparent font-bold">✓</span>
+                </div>
+                <div onclick="setCategory('custom')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition">
+                    <span class="text-slate-200">自訂材質</span>
+                    <span id="check-custom" class="text-transparent font-bold">✓</span>
+                </div>
+            </div>
+        </div>
+        <div class="space-y-3">
+            <h3 class="text-sm font-medium text-slate-400">材質清單</h3>
+            <div id="materialListContainer" class="bg-cardBg border border-borderGray rounded-2xl divide-y divide-borderGray"></div>
+        </div>
+    </div>
+
+    <div id="settingsView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center pt-4">
+            <button onclick="switchView('mainView')" class="bg-cardBg border border-borderGray px-4 py-2 rounded-2xl text-accentYellow text-sm font-medium">完成</button>
+            <h2 class="text-lg font-bold flex-1 text-center mr-12">設定</h2>
+        </div>
+        <div class="space-y-3">
+            <h3 class="text-sm font-medium text-slate-400">單位與選項</h3>
+            <div class="bg-cardBg border border-borderGray rounded-2xl divide-y divide-borderGray">
+                <div class="p-4 flex justify-between items-center">
+                    <span class="text-slate-200">單位系統</span>
+                    <select id="unitSystemSelect" onchange="changeUnitSystem()" class="bg-inputBg text-accentYellow border border-borderGray rounded-lg px-3 py-1.5 focus:outline-none">
+                        <option value="metric">公制 (mm)</option>
+                        <option value="imperial">英制 (inch)</option>
+                    </select>
+                </div>
+                <div class="p-4 flex justify-between items-center">
+                    <span class="text-slate-200">自動填入單價</span>
+                    <input type="checkbox" checked class="accent-yellow-400 w-5 h-5">
+                </div>
+                <div class="p-4 flex justify-between items-center">
+                    <span class="text-slate-200">啟用麥克風</span>
+                    <input type="checkbox" disabled class="accent-yellow-400 w-5 h-5 opacity-50 cursor-not-allowed">
+                </div>
+            </div>
+        </div>
+        <div onclick="switchView('customMaterialView')" class="bg-cardBg border border-borderGray rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition">
+            <div class="flex items-center space-x-3">
+                <span class="text-accentYellow font-bold">📑</span>
+                <span class="text-slate-200">自訂材質</span>
+            </div>
+            <span class="text-slate-400">›</span>
+        </div>
+    </div>
+
+    <div id="customMaterialView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center pt-4">
+            <button onclick="switchView('settingsView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <h2 class="text-lg font-bold flex-1 text-center mr-10">自訂材質</h2>
+            <button class="text-accentYellow text-sm font-medium">Edit</button>
+        </div>
+        <div class="space-y-3">
+            <h3 class="text-sm font-medium text-slate-400">自訂材質清單</h3>
+            <div id="customMaterialListContainer" class="bg-cardBg border border-borderGray rounded-2xl divide-y divide-borderGray">
+                <div class="p-6 text-center text-slate-500 text-sm">目前沒有自訂材質</div>
+            </div>
+        </div>
+        <div onclick="switchView('addCustomMaterialView')" class="bg-cardBg border border-borderGray rounded-2xl p-4 flex items-center justify-between text-accentYellow font-medium cursor-pointer hover:bg-inputBg transition">
+            <div class="flex items-center space-x-2">
+                <span class="bg-accentYellow text-darkBg rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">+</span>
+                <span>新增自訂材質</span>
+            </div>
+            <span>›</span>
+        </div>
+    </div>
+
+    <div id="addCustomMaterialView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center justify-between pt-4">
+            <div class="flex items-center space-x-3">
+                <button onclick="switchView('customMaterialView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <button onclick="switchView('customMaterialView')" class="bg-cardBg border border-borderGray px-4 py-2 rounded-2xl text-accentYellow text-sm font-medium">取消</button>
+            </div>
+            <h2 class="text-lg font-bold">新增材質</h2>
+            <button onclick="saveCustomMaterial()" class="bg-cardBg border border-borderGray px-4 py-2 rounded-2xl text-accentYellow text-sm font-medium">儲存</button>
+        </div>
+        <div class="space-y-3">
+            <h3 class="text-sm font-medium text-slate-400">新材質資訊</h3>
+            <div class="bg-cardBg border border-borderGray rounded-2xl divide-y divide-borderGray overflow-hidden">
+                <div class="p-3"><input type="text" id="newMatName" placeholder="材質名稱" class="w-full bg-transparent text-slate-100 placeholder-slate-500 focus:outline-none px-2 py-1"></div>
+                <div class="p-3"><input type="number" step="0.001" id="newMatDensity" placeholder="密度 (g/cm³)" class="w-full bg-transparent text-slate-100 placeholder-slate-500 focus:outline-none px-2 py-1"></div>
+                <div class="p-3"><input type="number" step="0.01" id="newMatPrice" placeholder="預設單價 (元/kg)" class="w-full bg-transparent text-slate-100 placeholder-slate-500 focus:outline-none px-2 py-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center pt-4">
+            <button onclick="switchView('mainView')" class="bg-cardBg border border-borderGray p-2.5 rounded-full text-accentYellow">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <h2 class="text-lg font-bold flex-1 text-center mr-6">歷史紀錄</h2>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+            <span id="historyCount" class="text-slate-400">共 0 筆</span>
+            <button onclick="clearHistory()" class="text-rose-500 hover:underline">全部清除</button>
+        </div>
+        <div id="historyList" class="space-y-3">
+            <div class="text-center text-slate-500 py-10 text-sm">尚無歷史紀錄</div>
+        </div>
+    </div>
+
+    <div id="historyDetailView" class="max-w-md mx-auto p-4 space-y-6 hidden">
+        <div class="flex items-center pt-4">
+            <button onclick="switchView('historyView')" class="bg-cardBg border border-borderGray px-4 py-2 rounded-2xl text-accentYellow text-sm font-medium">關閉</button>
+            <h2 class="text-lg font-bold flex-1 text-center mr-12">紀錄詳情</h2>
+        </div>
+        <div id="detailContentCard" class="bg-cardBg border border-borderGray rounded-2xl p-5 text-sm text-slate-300 space-y-1.5 font-mono"></div>
+    </div>
+
+    <!-- 真實 Google AdSense 底部橫幅廣告放置區 -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white text-slate-900 py-1 px-2 flex justify-center shadow-lg z-50 max-w-md mx-auto border-t border-slate-300">
+        <!-- Google AdSense 廣告單元 -->
+        <ins class="adsbygoogle"
+             style="display:inline-block;width:320px;height:50px"
+             data-ad-client="ca-pub-YOUR_CLIENT_ID"
+             data-ad-slot="YOUR_AD_SLOT_ID"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        let currentShape = 'plate';
+        let currentCategory = 'metal';
+        let currentMaterial = '鋁合金';
+        let currentDensity = 2.700;
+        let currentUnitSystem = 'metric';
+        let historyData = [];
+        let isPriceLocked = false;
+
+        const categoriesData = {
+            metal: [
+                { name: '鋁合金', density: 2.700 },
+                { name: '白鐵', density: 7.930 },
+                { name: '中碳鋼', density: 7.820 },
+                { name: '黃銅', density: 8.500 },
+                { name: '紅銅', density: 8.960 }
+            ],
+            plastic: [
+                { name: '壓克力 (PMMA)', density: 1.180 },
+                { name: '聚碳酸酯 (PC)', density: 1.200 },
+                { name: '聚乙烯 (PE)', density: 0.950 },
+                { name: '聚丙烯 (PP)', density: 0.910 },
+                { name: '聚甲醛 (POM)', density: 1.410 }
+            ],
+            custom: []
+        };
+
+        function switchView(viewId) {
+            ['mainView', 'materialSelectorView', 'historyView', 'historyDetailView', 'settingsView', 'customMaterialView', 'addCustomMaterialView'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+            if(viewId === 'materialSelectorView') renderMaterialList();
+            if(viewId === 'customMaterialView') renderCustomMaterialList();
+        }
+
+        function changeUnitSystem() {
+            currentUnitSystem = document.getElementById('unitSystemSelect').value;
+            document.getElementById('unitLabelIndicator').innerText = currentUnitSystem === 'metric' ? 'mm' : 'inch';
+            renderDimensions();
+        }
+
+        function setCategory(category) {
+            currentCategory = category;
+            ['metal', 'plastic', 'custom'].forEach(cat => {
+                document.getElementById(`check-${cat}`).className = (cat === category) ? 'text-sky-400 font-bold' : 'text-transparent font-bold';
+            });
+            renderMaterialList();
+        }
+
+        function setShape(shape) {
+            currentShape = shape;
+            ['plate', 'rod', 'tube'].forEach(s => {
+                const btn = document.getElementById(`btn-${s}`);
+                if(s === shape) {
+                    btn.className = "shape-btn py-2.5 rounded-xl text-sm font-medium transition bg-inputBg text-slate-100 shadow";
+                } else {
+                    btn.className = "shape-btn py-2.5 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-100";
+                }
+            });
+            renderDimensions();
+        }
+
+        function renderDimensions() {
+            const container = document.getElementById('dimensionInputsContainer');
+            const unitText = currentUnitSystem === 'metric' ? 'mm' : 'inch';
+            if(currentShape === 'plate') {
+                container.innerHTML = `
+                    <div><input type="number" id="dim1" placeholder="長度 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim1')"></div>
+                    <div><input type="number" id="dim2" placeholder="寬度 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim2')"></div>
+                    <div><input type="number" id="dim3" placeholder="厚度 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim3')"></div>
+                `;
+            } else if(currentShape === 'rod') {
+                container.innerHTML = `
+                    <div class="col-span-2"><input type="number" id="dim1" placeholder="直徑 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim1')"></div>
+                    <div><input type="number" id="dim2" placeholder="長度 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim2')"></div>
+                `;
+            } else if(currentShape === 'tube') {
+                container.innerHTML = `
+                    <div><input type="number" id="dim1" placeholder="外徑 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim1')"></div>
+                    <div><input type="number" id="dim2" placeholder="內徑 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim2')"></div>
+                    <div><input type="number" id="dim3" placeholder="長度 (${unitText})" class="w-full bg-inputBg border border-borderGray rounded-xl py-3 px-2 text-center text-slate-100 focus:outline-none focus:border-accentYellow placeholder-slate-500" onkeydown="handleEnter(event, 'dim3')"></div>
+                `;
+            }
+        }
+
+        function handleEnter(event, currentId) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                let inputs = [];
+                if (currentShape === 'plate') {
+                    inputs = ['dim1', 'dim2', 'dim3', 'unitPrice'];
+                } else if (currentShape === 'rod') {
+                    inputs = ['dim1', 'dim2', 'unitPrice'];
+                } else if (currentShape === 'tube') {
+                    inputs = ['dim1', 'dim2', 'dim3', 'unitPrice'];
+                }
+
+                let currentIndex = inputs.indexOf(currentId);
+                if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
+                    let nextInput = document.getElementById(inputs[currentIndex + 1]);
+                    if (nextInput) nextInput.focus();
+                } else if (currentIndex === inputs.length - 1) {
+                    performCalculate();
+                }
+            }
+        }
+
+        function renderMaterialList() {
+            const container = document.getElementById('materialListContainer');
+            const list = categoriesData[currentCategory];
+            if(!list || list.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">目前沒有材質項目</div>`;
+                return;
+            }
+            container.innerHTML = list.map(mat => `
+                <div onclick="selectMaterial('${mat.name}', ${mat.density}, ${mat.price || 0})" class="p-4 flex justify-between items-center cursor-pointer hover:bg-inputBg transition">
+                    <div>
+                        <div class="text-slate-200 font-medium">${mat.name}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">密度：${mat.density.toFixed(3)} g/cm³ ${mat.price ? `| 預設單價：${mat.price} 元` : ''}</div>
+                    </div>
+                    <span class="${currentMaterial === mat.name ? 'text-accentYellow' : 'text-transparent'} font-bold">✓</span>
+                </div>
+            `).join('');
+        }
+
+        function renderCustomMaterialList() {
+            const container = document.getElementById('customMaterialListContainer');
+            const list = categoriesData.custom;
+            if(list.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">目前沒有自訂材質</div>`;
+                return;
+            }
+            container.innerHTML = list.map(mat => `
+                <div class="p-4 flex justify-between items-center">
+                    <div>
+                        <div class="text-slate-200 font-medium">${mat.name}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">密度：${mat.density.toFixed(3)} g/cm³ ${mat.price ? `| 單價：${mat.price}元` : ''}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function saveCustomMaterial() {
+            const name = document.getElementById('newMatName').value.trim();
+            const density = parseFloat(document.getElementById('newMatDensity').value);
+            const price = parseFloat(document.getElementById('newMatPrice').value) || 0;
+
+            if(!name || isNaN(density)) {
+                alert('請填寫完整的材質名稱與正確的密度！');
+                return;
+            }
+
+            categoriesData.custom.push({ name, density, price });
+            document.getElementById('newMatName').value = '';
+            document.getElementById('newMatDensity').value = '';
+            document.getElementById('newMatPrice').value = '';
+            switchView('customMaterialView');
+        }
+
+        function selectMaterial(name, density, price) {
+            currentMaterial = name;
+            currentDensity = density;
+            document.getElementById('selectedMaterialText').innerText = name;
+            document.getElementById('selectedDensityText').innerText = density.toFixed(3);
+            if(price > 0) {
+                document.getElementById('unitPrice').value = price;
+            }
+            switchView('mainView');
+        }
+
+        function toggleLockPrice() {
+            isPriceLocked = !isPriceLocked;
+            const icon = document.getElementById('lockIcon');
+            if(isPriceLocked) {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>';
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>';
+            }
+        }
+
+        function performCalculate() {
+            let volumeCm3 = 0;
+            let d1 = parseFloat(document.getElementById('dim1')?.value) || 0;
+            let d2 = parseFloat(document.getElementById('dim2')?.value) || 0;
+            let d3 = parseFloat(document.getElementById('dim3')?.value) || 0;
+            let unitPrice = parseFloat(document.getElementById('unitPrice')?.value) || 0;
+
+            let factor = currentUnitSystem === 'metric' ? 0.1 : 2.54; 
+            let c1 = d1 * factor;
+            let c2 = d2 * factor;
+            let c3 = d3 * factor;
+
+            if(currentShape === 'plate') {
+                volumeCm3 = c1 * c2 * c3;
+            } else if(currentShape === 'rod') {
+                let r = c1 / 2;
+                let h = c2;
+                volumeCm3 = Math.PI * Math.pow(r, 2) * h;
+            } else if(currentShape === 'tube') {
+                let ro = c1 / 2;
+                let ri = c2 / 2;
+                let h = c3;
+                volumeCm3 = Math.PI * (Math.pow(ro, 2) - Math.pow(ri, 2)) * h;
+            }
+
+            let weightKg = (volumeCm3 * currentDensity) / 1000;
+            let totalPrice = weightKg * unitPrice;
+
+            let shapeNameText = currentShape === 'plate' ? '板材' : (currentShape === 'rod' ? '圓棒' : '管材');
+            let unitSystemText = currentUnitSystem === 'metric' ? '公制 (mm)' : '英制 (inch)';
+            let dimString = currentShape === 'plate' ? `長度：${d1.toFixed(2)}，寬度：${d2.toFixed(2)}，厚度：${d3.toFixed(2)}` : (currentShape === 'rod' ? `直徑：${d1.toFixed(2)}，長度：${d2.toFixed(2)}` : `外徑：${d1.toFixed(2)}，內徑：${d2.toFixed(2)}，長度：${d3.toFixed(2)}`);
+
+            let fullResultHTML = `
+                單位：${unitSystemText}<br>
+                材型：${shapeNameText}<br>
+                材質：${currentMaterial}<br>
+                密度：${currentDensity.toFixed(3)} g/cm³<br>
+                尺寸：${dimString}<br>
+                體積：${volumeCm3.toFixed(2)} cm³<br>
+                重量：${weightKg.toFixed(3)} 公斤<br>
+                單價：${unitPrice.toFixed(2)} 元/公斤<br>
+                總價：${totalPrice.toFixed(2)} 元
+            `;
+            document.getElementById('resultCard').innerHTML = fullResultHTML;
+
+            let now = new Date();
+            let timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+            
+            historyData.unshift({
+                id: Date.now(),
+                summary: `材質：${currentMaterial}\n尺寸：${dimString}`,
+                detail: fullResultHTML,
+                time: timeStr
+            });
+            updateHistoryUI();
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function updateHistoryUI() {
+            const list = document.getElementById('historyList');
+            document.getElementById('historyCount').innerText = `共 ${historyData.length} 筆`;
+            if(historyData.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-500 py-10 text-sm">尚無歷史紀錄</div>`;
+                return;
+            }
+            list.innerHTML = historyData.map(item => `
+                <div onclick="openDetail('${item.id}')" class="bg-cardBg border border-borderGray rounded-2xl p-4 space-y-2 relative cursor-pointer hover:bg-inputBg transition">
+                    <div class="absolute left-0 top-3 bottom-3 w-1 bg-sky-400 rounded-r"></div>
+                    <div class="flex justify-between items-center text-xs text-slate-400 pl-3">
+                        <span class="font-bold text-slate-200">材料成本</span>
+                        <span>${item.time}</span>
+                    </div>
+                    <div class="text-xs text-slate-300 pl-3 whitespace-pre-line truncate">${item.summary}</div>
+                </div>
+            `).join('');
+        }
+
+        function openDetail(id) {
+            let item = historyData.find(h => h.id == id);
+            if(!item) return;
+            document.getElementById('detailContentCard').innerHTML = item.detail;
+            switchView('historyDetailView');
+        }
+
+        function clearHistory() {
+            historyData = [];
+            updateHistoryUI();
+        }
+
+        function clearForm() {
+            ['dim1', 'dim2', 'dim3', 'unitPrice'].forEach(id => {
+                let el = document.getElementById(id);
+                if(el) el.value = '';
+            });
+            document.getElementById('resultCard').innerHTML = `<div class="text-slate-500">尚未進行計算...</div>`;
+        }
+
+        renderDimensions();
+    </script>
+</body>
+</html>
